@@ -283,8 +283,14 @@
 
 			const now = new Date();
 
+			const humanFriendlyTime = (
+				now.getHours().toString().padStart(2, '0') + ":" +
+				now.getMinutes().toString().padStart(2, '0') + ":" +
+				now.getSeconds().toString().padStart(2, '0')
+			);
+
 			outputContainer.querySelector("#scroll-anchor").insertAdjacentHTML("beforebegin",
-				`<div><code>[${now.getHours()}:${now.getMinutes()}:${now.getSeconds().toString().padStart(2, '0')}]</code> ${outputString}</div>`
+				`<div><code>[${humanFriendlyTime}]</code> ${outputString}</div>`
 			);
 
 			if (!scrollingEnabled && isOverflown(outputContainer)) {
