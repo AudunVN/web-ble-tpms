@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Web BLE TPMS reader</title>
+
+	<style>
+		:root {
+			--primaryColor: #1f6ec9;
+			--successColor: #43ef00;
+			--warningColor: #e06f0d;
+			--dangerColor: #ba140b;
+			--borderColor: #808080;
+			--backgroundColor: #111;
+			--textColor: #EEE;
+		}
+
+		body {
+			margin: 0;
+			background: #111;
+			color: #EEE;
+			overflow: hidden;
+			font-family: sans-serif;
+			font-size: 12pt;
+		}
+
+		body * {
+			font-size: 1em;
+		}
+
+		body > main {
+			display: flex;
+			position: absolute;
+			flex-flow: column;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			right: 0;
+		}
+
+		#output-container {
+			flex: 1;
+			overflow-x: hidden;
+			overflow-y: auto;
+		}
+
+		#output-container > *:not(#scroll-anchor) {
+			padding: 0.5em;
+		}
+
+		#output-container * {
+			overflow-anchor: none;
+			white-space: pre-wrap;
+		}
+
+		#scroll-anchor {
+			overflow-anchor: auto;
+			height: 1px;
+		}
+
+		#output-container > *:nth-child(even) {
+			background: rgba(255,255,255,0.2);
+		}
+
+		main > nav {
+			display: flex;
+			flex-flow: row;
+			background: var(--textColor);
+			color: var(--bgColor);
+			padding: 0.5em;
+		}
+
+		main > nav .sensorOptions {
+			flex: 1;
+		}
+
+		.inputWrapper {
+			display: inline-block;
+		}
+
+		.tpmsIdField {
+			position: relative;
+			z-index: 0;
+		}
+
+		.tpmsIdField label {
+			z-index: 1;
+			position: relative;
+			width: 1em;
+			display: inline-block;
+			margin-left: 0.5em;
+		}
+
+		.tpmsIdField input[type="text"] {
+			z-index: 0;
+			border: 0.1em solid gray;
+			border-radius: 0.25em;
+		}
+
+		.tpmsIdField input[type="text"]:valid {
+			border-color: var(--primaryColor);
+			box-shadow: -2em 0em 0em 0em var(--primaryColor);
+		}
+
+		.tpmsIdField input[type="text"]:invalid {
+			border-color: var(--dangerColor);
+			box-shadow: -2em 0em 0em 0em var(--dangerColor);
+		}
+
+		.tpmsIdField input[type="text"]:placeholder-shown {
+			border-color: var(--warningColor);
+			box-shadow: -2em 0em 0em 0em var(--warningColor);
+		}
+
+		main:not(.scanning) #stopScan {
+			display: none;
+		}
+
+		main.scanning #startScan {
+			display: none;
+		}
+
+		@media (max-width: 35em) {
+			.inputWrapper {
+				display: flex;
+				flex-flow: row;
+			}
+
+			.inputWrapper input {
+				flex: 1;
+			}
+
+			.inputWrapper label {
+				top: 0.15em;
+			}
+
+			main > nav > button {
+				padding: 1em;
+			}
+
+			.tpmsIdField input[type="text"]:valid {
+				border-color: var(--primaryColor);
+				box-shadow: -1.5em 0em 0em 0em var(--primaryColor);
+			}
+
+			.tpmsIdField input[type="text"]:invalid {
+				border-color: var(--dangerColor);
+				box-shadow: -1.5em 0em 0em 0em var(--dangerColor);
+			}
+
+			.tpmsIdField input[type="text"]:placeholder-shown {
+				border-color: var(--warningColor);
+				box-shadow: -1.5em 0em 0em 0em var(--warningColor);
+			}
+		}
+
+		main > nav > button {
+			color: var(--textColor);
+			background: var(--primaryColor);
+			border: 0.1em solid #808080;
+			border-radius: 0.25em;
+			cursor: pointer;
+		}
+
+		main > nav > button#stopScan {
+			color: var(--textColor);
+			background: var(--warningColor);
+			border: 0.1em solid #808080;
+			border-radius: 0.25em;
+			cursor: pointer;
+		}
+
+		.sensorOptions > * {
+			margin: 0.25em;
+		}
+
+		main > nav > input + label {
+			margin-right: 0.25em;
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<nav class="controls">
+			<div class="sensorOptions">
+				<div class="inputWrapper tpmsIdField">
+					<label for="tpmsId_frontLeft">↖</label>
+					<input type="text" id="tpmsId_frontLeft" name="tpmsId_frontLeft" value="11ADA3" placeholder="A1B2C3" size="6" maxlength="6" pattern="^[0-9a-fA-F]{6}$">
+				</div>
+
+				<div class="inputWrapper tpmsIdField">
+					<label for="tpmsId_frontRight">↗</label>
+					<input type="text" id="tpmsId_frontRight" name="tpmsId_frontRight" value="" placeholder="A1B2C3" size="6" maxlength="6" pattern="^[0-9a-fA-F]{6}$">
+				</div>
+
+				<div class="inputWrapper tpmsIdField">
+					<label for="tpmsId_rearLeft">↙</label>
+					<input type="text" id="tpmsId_rearLeft" name="tpmsId_rearLeft" value="" placeholder="A1B2C3" size="6" maxlength="6" pattern="^[0-9a-fA-F]{6}$">
+				</div>
+
+				<div class="inputWrapper tpmsIdField">
+					<label for="tpmsId_rearRight">↘</label>
+					<input type="text" id="tpmsId_rearRight" name="tpmsId_rearRight" value="" placeholder="A1B2C3" size="6" maxlength="6" pattern="^[0-9a-fA-F]{6}$">
+				</div>
+			</div>
+
+			<button id="startScan">Scan</button>
+			<button id="stopScan">Stop</button>
+		</nav>
+
+		<div id="output-container">
+			<!-- lets scroll position stick to bottom when content is appended-->
+			<div id="scroll-anchor"></div> 
+		</div>
+	</main>
+
+	<script>
+		const SCAN_START_TIMEOUT = 10; // seconds
+		const SCAN_CHECK_INTERVAL = 500; // milliseconds
+
+		let scrollingEnabled = false;
+		let bleScan;
+		let scanStartCheck;
+		let bleScanPreviouslyActive = false;
+
+		let bleScanChecker = setInterval(doBleScanCheck, SCAN_CHECK_INTERVAL);
+
+		/* 471 471 471 471 471 471 471 471 471 471 471 471 471 471 */
+
+		function doBleScanCheck() {
+			if (typeof bleScan !== "undefined" && bleScan.active) {
+				document.querySelector("main").classList.add("scanning");
+				
+				if (!bleScanPreviouslyActive) {
+					/* oh boy we're scanning */
+				}
+
+				bleScanPreviouslyActive = true;
+			} else {
+				document.querySelector("main").classList.remove("scanning");
+
+				if (bleScanPreviouslyActive) {
+					log("BLE scan stopped.");
+				}
+
+				bleScanPreviouslyActive = false;
+			}
+		}
+
+		function isOverflown(element) {
+			return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+		}
+
+		function log(dataOrPrefix, data) {
+			let prefix = "";
+			let outputData = dataOrPrefix;
+
+			if (typeof data !== "undefined") {
+				prefix = dataOrPrefix;
+				outputData = data;
+			}
+
+			console.log(outputData);
+
+			let outputString = outputData;
+
+			if (typeof outputData !== "string") {
+				try {
+					outputString = JSON.stringify(outputData, null, 4);
+				} catch(error) {
+					outputString = "Could not stringify object " + data.toString() + ", error: " + error.toString();
+				}
+			}
+
+			if (typeof outputString === "undefined") {
+				outputString = outputData.toString();
+			}
+
+			outputString = prefix + outputString;
+
+			const outputContainer = document.querySelector("#output-container");
+
+			const now = new Date();
+
+			outputContainer.querySelector("#scroll-anchor").insertAdjacentHTML("beforebegin",
+				`<div><code>[${now.getHours()}:${now.getMinutes()}:${now.getSeconds().toString().padStart(2, '0')}]</code> ${outputString}</div>`
+			);
+
+			if (!scrollingEnabled && isOverflown(outputContainer)) {
+				outputContainer.scrollTop = outputContainer.scrollHeight;
+				scrollingEnabled = true;
+			}
+		}
+
+		const fromHexString = (hexString) =>
+		Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
+
+		const toHexString = (bytes) =>
+		bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+
+		const isHex = (maybeHex) =>
+		maybeHex.length !== 0 && maybeHex.length % 2 === 0 && !/[^a-fA-F0-9]/u.test(maybeHex);
+
+		/* Usage
+		log(toHexString(Uint8Array.from([0, 1, 2, 42, 100, 101, 102, 255])));
+		log(fromHexString('0001022a646566ff'));
+
+		const missingLetter = "abc";
+
+		if (!isHex(missingLetter)) {
+			log(`The string "${missingLetter}" is not valid hex.`)
+		} else {
+			fromHexString(missingLetter);
+		}
+		*/
+
+		function getTpmsData(tpmsBuffer) {
+			const data = {};
+
+			data.sensorAddress = toHexString(new Uint8Array(tpmsBuffer, 0, 6));
+			data.sensorId = toHexString(new Uint8Array(tpmsBuffer, 3, 3));
+
+			data.alarm = {
+				raw: 0,
+				id: 0
+			};
+
+			data.battery = {
+				raw: 0,
+				percentage: 0,
+				voltage: 0
+			};
+
+			data.pressure = {
+				raw: 0,
+				kPa: 0,
+				bar: 0,
+				psi: 0
+			};
+
+			data.temperature = {
+				raw: 0,
+				degC: 0,
+				degF: 0
+			};
+
+			try {
+				const expectedTpmsBufferLength = 16;
+
+				if (tpmsBuffer.byteLength !== expectedTpmsBufferLength) {
+					log(`Expected TPMS buffer length of ${expectedTpmsBufferLength}, got ${tpmsBuffer.byteLength}`);
+					if (tpmsBuffer.byteLength < expectedTpmsBufferLength) {
+						throw "TPMS buffer too short to decode, aborting!";
+					}
+				}
+
+				const dataView = new DataView(tpmsBuffer);
+
+				const pressure = dataView.getInt32(6, true);
+				data.pressure.raw = pressure;
+				data.pressure.kPa = pressure/100;
+				data.pressure.bar = pressure/100000;
+				data.pressure.psi = 14.5038 * data.pressure.bar;
+
+				const temperature = dataView.getInt32(10, true);
+				data.temperature.raw = temperature;
+				data.temperature.degC = temperature/100;
+				data.temperature.degF = 1.8 * data.temperature.degC + 32;
+
+				const battery = dataView.getInt8(14);
+				data.battery.raw = battery;
+				data.battery.percentage = battery/100;
+				data.battery.voltage = 3 * data.battery.percentage;
+
+				const alarm = dataView.getInt8(15);
+				data.alarm.raw = alarm;
+				data.alarm.id = (alarm === 0) ? "NO_ALARM" : "PRESSURE_ALARM";
+			} catch(error) {
+				console.error(error);
+				log("Error: ", error.toString());
+			}
+
+			return data;
+		}
+
+		function startTpmsListener(ids) {
+			log("Listening for sensor IDs \"", ids.join("\", \"")+ "\"");
+
+			const filters = ids.map((id, index) => new Object({
+				manufacturerData: [{
+					companyIdentifier: 0x0100,
+					dataPrefix: fromHexString(`8${index}eaca${id.toLowerCase()}`),
+				}],
+				services: [0xfbb0]
+			}));
+
+			const LEScanOptions = {
+				filters,
+				keepRepeatedDevices: true
+			};
+
+			log("BLE scan options: ", LEScanOptions);
+
+			navigator.bluetooth.requestLEScan(LEScanOptions).then((bleScanInstance) => {
+				bleScan = bleScanInstance;
+				let advertisementsReceived = 0;
+
+				log("BLE scan started, awaiting BLE advertisements");
+				navigator.bluetooth.addEventListener("advertisementreceived", (event) => {
+					try {
+						advertisementsReceived++;
+
+						log("New BLE advert: ", event);
+						log("Device: ", event.device);
+						log("Manufacturer data: ", event.manufacturerData);
+
+						const tpmsBuffer = event.manufacturerData.get(0x0100).buffer;
+						const tpmsData = getTpmsData(tpmsBuffer);
+
+						tpmsData.meta = { 
+							id: advertisementsReceived,
+							time: Date.now()
+						};
+
+						// Reference: https://webbluetoothcg.github.io/web-bluetooth/#advertising-event-algorithm
+						tpmsData.meta.deviceName = event.device.name;
+						tpmsData.meta.deviceId = event.device.id;
+						tpmsData.meta.rssi = event.rssi; // dBm
+						tpmsData.meta.txPower = event.txPower; 
+						tpmsData.meta.uuids = event.uuids;
+
+						// Reference: https://dom.spec.whatwg.org/#event
+						tpmsData.meta.uaTime = event.timeStamp; // https://dom.spec.whatwg.org/#dom-event-timestamp
+						tpmsData.meta.uaIsTrusted = event.isTrusted; // https://dom.spec.whatwg.org/#dom-event-istrusted
+
+						log("TPMS data: ", tpmsData);
+					} catch(error) {
+						console.error(error);
+						log("Error: ", error.toString());
+					}
+				});
+			});
+		}
+
+		/* 471 471 471 471 471 471 471 471 471 471 471 471 471 471 */
+
+		log(
+			"Web BLE scanning is an experimental web standard." + 
+			"\n" +
+			"You likely need to be using a recent version of Chrome with Experimental Platform Features enabled for this to work!" + 
+			"\n" + 
+			"See <code>chrome://flags/#enable-experimental-web-platform-features</code> for more information."
+		);
+
+		const testString = (
+		"80" + // 80, 81, 82, 83 maps to sensor ID 1, 2, 3, 4         \
+		"ea ca" + // no known meaning, fixed part of sensor address   | - > sensor address
+		"11 ad a3" + // sensor ID                                     /
+		"0e a9 04 00" + // pressure as little endian int32, divide by 100 to get kPa (here 3054.22 kPa)
+		"5f 09 00 00" + // temperature as little endian int32, divide by 100 to get degrees C (here 23.99 degrees C)
+		"5e" + // battery percentage as int8, divide by 100 to get an actual percentage (here 94%)
+		"00" // alarm, 01 seems to indicate a low/no pressure alarm
+		).replace(/\s/g, "");
+
+		const testBuffer = fromHexString(testString).buffer;
+
+		log(`Testing TPMS data parser with input ${testString}:\n`, getTpmsData(testBuffer));
+
+		document.querySelector("#startScan").addEventListener("click", () => {
+			const frontLeftId = document.querySelector("input#tpmsId_frontLeft").value;
+			const frontRightId = document.querySelector("input#tpmsId_frontRight").value;
+			const rearLeftId = document.querySelector("input#tpmsId_rearLeft").value;
+			const rearRightId = document.querySelector("input#tpmsId_rearRight").value;
+			startTpmsListener([frontLeftId, frontRightId, rearLeftId, rearRightId]);
+
+			scanStartCheck = setTimeout(() => {
+				if (typeof bleScan === "undefined" || !bleScan.active) {
+					log(
+						`Scan did not start after ${SCAN_START_TIMEOUT} seconds.` + 
+						"\n" +
+						"Your user agent may not support the Web BLE scanning API, or you may not have accepted the BLE scan permission request."
+					);
+				}
+			}, 1000 * SCAN_START_TIMEOUT);
+		});
+
+		document.querySelector("#stopScan").addEventListener("click", () => {
+			clearTimeout(scanStartCheck);
+			bleScan.stop();
+			document.querySelector("main").classList.remove("scanning");
+		});
+	</script>
+</body>
+</html>
