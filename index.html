@@ -430,8 +430,7 @@
 						advertisementsReceived++;
 
 						log("New BLE advert: ", event);
-						log("Device: ", event.device);
-						log("Manufacturer data: ", event.manufacturerData);
+				
 
 						const tpmsBuffer = event.manufacturerData.get(0x0100).buffer;
 						const tpmsData = getTpmsData(tpmsBuffer);
