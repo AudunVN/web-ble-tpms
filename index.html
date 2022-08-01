@@ -394,6 +394,14 @@
 			return `${testData.sensorId}: ${testData.pressure.bar.toPrecision(3)} bar, ${testData.temperature.degC.toPrecision(3)}°C`;
 		}
 
+		function getTpmsDataLog(tpmsData) {
+			return (
+				`<details><summary>Data from sensor ${getTpmsDataSummary(tpmsData)}</summary>` +
+				JSON.stringify(tpmsData, null, 4) +
+				"</details>"
+			);
+		}
+
 		function startTpmsListener(ids) {
 			log("Listening for sensor IDs \"", ids.join("\", \"")+ "\"");
 
@@ -444,8 +452,7 @@
 						tpmsData.meta.uaTime = event.timeStamp; // https://dom.spec.whatwg.org/#dom-event-timestamp
 						tpmsData.meta.uaIsTrusted = event.isTrusted; // https://dom.spec.whatwg.org/#dom-event-istrusted
 
-						log("TPMS data: ", tpmsData);
-						log("Summary for sensor ", getTpmsDataSummary(tpmsData));
+						log(getTpmsDataLog(tpmsData));
 					} catch(error) {
 						console.error(error);
 						log("Error: ", error.toString());
@@ -477,8 +484,7 @@
 		const testBuffer = fromHexString(testString).buffer;
 		const testData = getTpmsData(testBuffer);
 
-		log(`Testing TPMS data parser with input ${testString}:\n`, testData);
-		log(`Test summary for `, getTpmsDataSummary(testData));
+		log("Testing TPMS data parser with input 80eaca11ada30ea904005f0900005e00:", getTpmsDataLog(testData));
 
 		document.querySelector("#startScan").addEventListener("click", () => {
 			const frontLeftId = document.querySelector("input#tpmsId_frontLeft").value;
